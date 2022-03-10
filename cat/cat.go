@@ -1,28 +1,34 @@
 package main
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"os"
 )
 
 func main() {
-	files := os.Args[1:]
-	readers := make([]io.Reader, len(files))
-
-	for i, file := range files {
-		readers[i], _ = os.Open(file)
+	if len(os.Args) <= 1 {
+		log.Fatal("Error: no filename provided as argument. Aborting")
 	}
 
-	mr := io.MultiReader(readers...)
+	filenames := os.Args[1:]
+	err := readFromFiles(filenames, os.Stdout)
 
-	// Read off `mr`
-	buf := make([]byte, 8)
-	for {
-		n, err := mr.Read(buf)
-		fmt.Printf("%s", buf[0:n])
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func readFromFiles(filenames []string, output io.Writer) error {
+	for _, fn := range filenames {
+		file, err := os.Open(fn)
 		if err != nil {
-			break
+			return err
 		}
+		defer file.Close()
+
+		io.Copy(output, file)
 	}
+
+	return nil
 }
