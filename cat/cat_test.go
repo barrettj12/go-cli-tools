@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 	"testing"
 )
 
+// Constants for testing files
 const TESTDIR = "temp/"
 
 var filesToMake = map[string]string{
@@ -18,6 +20,7 @@ var filesToMake = map[string]string{
 
 const nonfile = "this-file-doesn't-exist"
 
+// Setup / teardown for tests
 func setup() {
 	os.Mkdir(TESTDIR, os.ModePerm)
 
@@ -57,16 +60,45 @@ func teardown() {
 	}
 }
 
-func TestControl(t *testing.T) {
-	// testWriter =
-}
-
-// Testcontrol
-
-// testfiledoensntexist
-
-// test files are closed at correct time
-
-func main() {
+func TestMain(m *testing.M) {
+	setup()
+	code := m.Run()
 	teardown()
+	os.Exit(code)
 }
+
+// ACTUAL TESTS START HERE
+func TestControl(t *testing.T) {
+	// Make buffer to write to
+	var testWriter bytes.Buffer
+	// Make list of files
+	var files []string
+	expOutput := ""
+	for f, c := range filesToMake {
+		files = append(files, TESTDIR+f)
+		expOutput += c
+	}
+
+	err := readFromFiles(files, &testWriter)
+	if err != nil {
+		t.Fatalf("Error reading files: %s", err)
+	}
+
+	// Check buffer output is as expected
+	actualOutput := testWriter.String()
+	if actualOutput != expOutput {
+		t.Fatalf(`Actual output "%s" doesn't match expected output "%s"`,
+			actualOutput, expOutput)
+	}
+}
+
+func TestFileDoesntExist(t *testing.T) {
+	err := readFromFiles(
+		[]string{TESTDIR + nonfile},
+		nil)
+	if err == nil {
+		t.Fatalf(`"%s" does not exist, I expected an error`, nonfile)
+	}
+}
+
+// test files are closed at correct time?
