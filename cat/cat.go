@@ -1,19 +1,34 @@
 package main
 
 import (
+	"flag"
 	"io"
 	"log"
 	"os"
 )
 
+// -o flag: direct output to file
+var output = flag.String("o", "", "file to write output to")
+
 func main() {
-	if len(os.Args) <= 1 {
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) <= 1 {
 		log.Fatal("Error: no filename provided as argument. Aborting")
 	}
 
-	filenames := os.Args[1:]
-	err := readFromFiles(filenames, os.Stdout)
+	filenames := args[1:]
+	writeout := os.Stdout
+	if *output != "" {
+		var err error
+		writeout, err = os.Create(*output)
+		if err != nil {
+			log.Fatal("Output invalid:", err)
+		}
+	}
 
+	err := readFromFiles(filenames, writeout)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,6 +45,7 @@ func readFromFiles(filenames []string, output io.Writer) error {
 	return nil
 }
 
+// Separate function - defer ensures that files close when done
 func readFromFile(fn string, output io.Writer) (err error) {
 	file, err := os.Open(fn)
 	// fmt.Printf("Opened file") // %s\n", file.Name())
