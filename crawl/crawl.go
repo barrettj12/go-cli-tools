@@ -15,7 +15,7 @@ var outputDir = flag.String("o", ".", "directory to download files to")
 var bufferSize = flag.Int("q", 100, "max size of URL queue")
 
 // -w flag: set max number of workers
-//var numThreads = flag.Int("w", 10, "max number of parallel workers")
+var numWorkers = flag.Int("w", 10, "max number of parallel workers")
 
 func main() {
 	flag.Parse()
@@ -40,12 +40,32 @@ func runCrawler(url string) {
 	taskQueue := make(chan Task, *bufferSize)
 	taskQueue <- Task{url, *outputDir, "index.html"}
 
-	for nextTask := range taskQueue {
-		go getUrl(nextTask, taskQueue)
+	// Create channel of "tokens"
+	// The main thread must use a token to create a new goroutine
+	// When the goroutine terminates, it returns the token
+	tokens := make(chan int, *numWorkers)
+
+	for {
+		if len(taskQueue) > 0 {
+			// Get next job
+			task := <-taskQueue
+			// Wait for another token
+			<-tokens
+			// Start new goroutine
+			go getUrl(task, taskQueue, tokens)
+		} else {
+			// No more jobs
+			if len(tokens) == *numWorkers {
+				// No goroutines running, hence all tasks are done
+				os.Exit(0)
+			}
+			// Else - need to wait as a currently running worker
+			//   could create a new job
+		}
 	}
 }
 
-func getUrl(task Task, taskQueue chan Task) {
+func getUrl(task Task, taskQueue chan Task, tokens chan int) {
 	// Make directory to download to
 	err := os.MkdirAll(task.destDir, os.ModePerm)
 	if err != nil {
@@ -55,5 +75,5 @@ func getUrl(task Task, taskQueue chan Task) {
 
 	// Make file to write to
 
-	// if external resource encountered: add to `urlQueue`
+	// if external resource encountered: add to `taskQueue`
 }
