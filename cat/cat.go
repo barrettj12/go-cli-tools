@@ -15,7 +15,9 @@ func main() {
 	args := flag.Args()
 
 	if len(args) <= 1 {
-		log.Fatal("Error: no filename provided as argument. Aborting")
+		log.Fatal("Error: expected filename as argument but none was provided.\n" +
+			"Usage:  cat [-o <outputfile>] <file1> [<file2> ...]\n" +
+			"Aborting.")
 	}
 
 	filenames := args[1:]
@@ -24,7 +26,7 @@ func main() {
 		var err error
 		writeout, err = os.Create(*output)
 		if err != nil {
-			log.Fatal("Output invalid:", err)
+			log.Fatal("Failed to create output file:", err)
 		}
 	}
 
