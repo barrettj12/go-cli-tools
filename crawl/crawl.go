@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // COMMAND LINE OPTIONS
@@ -44,15 +45,26 @@ func runCrawler(url string) {
 	// The main thread must use a token to create a new goroutine
 	// When the goroutine terminates, it returns the token
 	tokens := make(chan int, *numWorkers)
+	for i := 0; i < *numWorkers; i++ {
+		tokens <- 0
+	}
+
+	// Create error channel
+	errorChan := make(chan error, *numWorkers)
 
 	for {
+		// Process errors first
+		for len(errorChan) > 0 {
+			fmt.Fprintf(os.Stderr, "Error: %v", <-errorChan)
+		}
+
 		if len(taskQueue) > 0 {
 			// Get next job
 			task := <-taskQueue
 			// Wait for another token
 			<-tokens
 			// Start new goroutine
-			go getUrl(task, taskQueue, tokens)
+			go getUrl(task, taskQueue, tokens, errorChan)
 		} else {
 			// No more jobs
 			if len(tokens) == *numWorkers {
@@ -65,15 +77,23 @@ func runCrawler(url string) {
 	}
 }
 
-func getUrl(task Task, taskQueue chan Task, tokens chan int) {
+func getUrl(task Task, taskQueue chan Task, tokens chan int, errorChan chan error) {
+	// Make sure to return token at end
+	defer func() { tokens <- 0 }()
+
 	// Make directory to download to
 	err := os.MkdirAll(task.destDir, os.ModePerm)
 	if err != nil {
-		fmt.Printf("Could not create directory %q: %v", task.destDir, err)
+		errorChan <- fmt.Errorf("Could not create directory %q: %w", task.destDir, err)
 		return
 	}
 
 	// Make file to write to
+	file, err := os.Create(filepath.Join(task.destDir, task.filename))
+	if err != nil {
+		errorChan <- fmt.Errorf("Could not create file %q in dir %q: %w", task.filename, task.destDir, err)
+		return
+	}
 
 	// if external resource encountered: add to `taskQueue`
 }
